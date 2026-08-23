@@ -1,0 +1,51 @@
+{
+    "name": "@martintoelk/bu-security-role-assigner",
+    "version": "1.0.0",
+    "displayName": "BU Security Role Assigner",
+    "description": "Safely preview and assign Dataverse security roles by business unit.",
+    "type": "module",
+    "main": "index.html",
+    "author": "Martin Tölk",
+    "license": "MIT",
+    "contributors": [{ "name": "Martin Tölk", "url": "https://github.com/martintoelk" }],
+    "repository": { "type": "git", "url": "https://github.com/martintoelk/security-role-assigner-toolkit.git" },
+    "configurations": {
+        "repository": "https://github.com/martintoelk/security-role-assigner-toolkit",
+        "readmeUrl": "https://raw.githubusercontent.com/martintoelk/security-role-assigner-toolkit/master/README.md"
+    },
+    "icon": "icons/role-shield.svg",
+    "features": { "multiConnection": "none", "minAPI": "1.2.0" },
+    "engines": {
+        "node": ">=18.0.0"
+    },
+    "scripts": {
+        "build": "tsc && vite build",
+        "typecheck": "tsc --noEmit",
+        "test": "vitest run",
+        "dev": "vite",
+        "watch": "vite build --watch",
+        "dev-watch": "vite build --mode development --watch",
+        "preview": "vite preview",
+        "finalize-package": "npm shrinkwrap",
+        "validate": "pptb-validate",
+        "version-stable": "npm version patch --no-git-tag-version",
+        "publish-package": "npm run build && npm run version-stable && npm publish --access public"
+    },
+    "dependencies": {
+        "react": "^18.3.1",
+        "react-dom": "^18.3.1"
+    },
+    "devDependencies": {
+        "@pptb/types": "^1.2.0",
+        "@types/react": "^18.3.12",
+        "@types/react-dom": "^18.3.1",
+        "@vitejs/plugin-react": "^4.3.4",
+        "typescript": "^5.6.3",
+        "vite": "^7.1.11",
+        "vitest": "^2.1.9"
+    },
+    "files": [
+        "dist",
+        "npm-shrinkwrap.json"
+    ]
+}

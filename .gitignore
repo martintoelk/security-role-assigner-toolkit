@@ -1,0 +1,6 @@
+codes.ps1
+codex.ps1
+node_modules/
+dist/
+coverage/
+*.log
