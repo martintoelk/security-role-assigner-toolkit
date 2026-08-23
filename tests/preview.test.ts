@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createRoleChangeOperations, createRoleChangePreview, filterByText } from "../src/domain/preview";
+import { canApplyConfirmedTeamPreview, createRoleChangeOperations, createRoleChangePreview, filterByText } from "../src/domain/preview";
 import type { RoleAssignment, SecurityRole, Target } from "../src/domain/types";
 
 const role: SecurityRole = { id: "role-a", rootRoleId: "logical-a", name: "Salesperson", businessUnitId: "bu-a" };
@@ -26,8 +26,32 @@ describe("createRoleChangePreview", () => {
     });
 
     it("emits an add operation only when the exact role is not already assigned", () => {
-        expect(createRoleChangeOperations({ action: "add", removeFromAllBusinessUnits: false, targets: [target], roles: [role], selectedRoleIds: [role.id], assignments: [] })).toHaveLength(1);
-        expect(createRoleChangeOperations({ action: "add", removeFromAllBusinessUnits: false, targets: [target], roles: [role], selectedRoleIds: [role.id], assignments: [{ targetId: target.id, roleId: role.id }] })).toHaveLength(0);
+        expect(createRoleChangeOperations({ action: "add", removeFromAllBusinessUnits: false, targets: [target], roles: [role], selectedRoleIds: [role.id], assignments: [], businessUnitMode: "modernized" })).toMatchObject([{ role, fallbackRole: undefined }]);
+        expect(createRoleChangeOperations({ action: "add", removeFromAllBusinessUnits: false, targets: [target], roles: [role], selectedRoleIds: [role.id], assignments: [{ targetId: target.id, roleId: role.id }], businessUnitMode: "modernized" })).toHaveLength(0);
+    });
+
+    it("supplies one target-BU fallback copy only for a traditional-BU add", () => {
+        const selectedRootRole: SecurityRole = { ...role, id: "role-root", businessUnitId: "root" };
+        const targetCopy: SecurityRole = { ...role, id: "role-target-copy", businessUnitId: target.businessUnitId };
+        const traditional = createRoleChangeOperations({ action: "add", removeFromAllBusinessUnits: false, targets: [target], roles: [selectedRootRole, targetCopy], selectedRoleIds: [selectedRootRole.id], assignments: [], businessUnitMode: "traditional" });
+        const modernized = createRoleChangeOperations({ action: "add", removeFromAllBusinessUnits: false, targets: [target], roles: [selectedRootRole, targetCopy], selectedRoleIds: [selectedRootRole.id], assignments: [], businessUnitMode: "modernized" });
+
+        expect(traditional[0].fallbackRole).toEqual(targetCopy);
+        expect(modernized[0].fallbackRole).toBeUndefined();
+    });
+
+    it("marks a missing classic-BU role copy so its failure is intelligible", () => {
+        const operations = createRoleChangeOperations({ action: "add", removeFromAllBusinessUnits: false, targets: [target], roles: [{ ...role, businessUnitId: "root" }], selectedRoleIds: [role.id], assignments: [], businessUnitMode: "traditional" });
+
+        expect(operations[0].fallbackUnavailableReason).toContain("No matching root-role copy");
+    });
+
+    it("allows mutation only for a confirmed team preview with changes", () => {
+        const preview = createRoleChangePreview({ action: "add", removeFromAllBusinessUnits: false, targets: [target], roles: [role], selectedRoleIds: [role.id], assignments: [] });
+
+        expect(canApplyConfirmedTeamPreview("team", false, preview)).toBe(false);
+        expect(canApplyConfirmedTeamPreview("user", true, preview)).toBe(false);
+        expect(canApplyConfirmedTeamPreview("team", true, preview)).toBe(true);
     });
 
     it("filters targets without changing the source list", () => {

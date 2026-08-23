@@ -6,6 +6,13 @@ export class RoleChangeCancelledError extends Error {
     constructor() { super("Role change operation cancelled"); }
 }
 
+export interface RoleChangeResult {
+    operation: RoleChangeOperation;
+    outcome: "applied" | "applied-with-fallback" | "failed";
+    role: SecurityRole;
+    message?: string;
+}
+
 const fetchXml = (entity: string, attributes: string[], page: number, cookie?: string, includeBusinessUnit = false) => `<fetch page="${page}"${cookie ? ` paging-cookie="${encodeURIComponent(cookie)}"` : ""}><entity name="${entity}">${attributes.map((attribute) => `<attribute name="${attribute}" />`).join("")}${includeBusinessUnit ? '<link-entity name="businessunit" from="businessunitid" to="businessunitid" link-type="outer" alias="businessunit"><attribute name="name" alias="businessunitname" /></link-entity>' : ""}</entity></fetch>`;
 const string = (record: Record<string, unknown>, key: string) => String(record[key] ?? "");
 const boolean = (record: Record<string, unknown>, key: string) => record[key] === true || record[key] === 1 || string(record, key).toLocaleLowerCase() === "true";
@@ -31,9 +38,7 @@ async function readAssignments(entity: "team" | "systemuser", id: string) {
 function toTargets(records: Record<string, unknown>[], type: TargetType): Target[] {
     const id = type === "team" ? "teamid" : "systemuserid";
     const name = type === "team" ? "name" : "fullname";
-    return records
-        .filter((record) => type !== "team" || Number(record.teamtype) !== 1)
-        .map((record) => ({ id: string(record, id), name: string(record, name), businessUnitId: lookupId(record, "businessunitid"), businessUnitName: string(record, "businessunitname") || string(record, "businessunitid@OData.Community.Display.V1.FormattedValue"), type, teamType: type === "team" ? string(record, "teamtype@OData.Community.Display.V1.FormattedValue") || string(record, "teamtype") : undefined, isDisabled: type === "user" ? boolean(record, "isdisabled") : undefined }));
+    return records.map((record) => ({ id: string(record, id), name: string(record, name), businessUnitId: lookupId(record, "businessunitid"), businessUnitName: string(record, "businessunitname") || string(record, "businessunitid@OData.Community.Display.V1.FormattedValue"), type, teamType: type === "team" ? string(record, "teamtype@OData.Community.Display.V1.FormattedValue") || string(record, "teamtype") : undefined, isDisabled: type === "user" ? boolean(record, "isdisabled") : undefined }));
 }
 
 export async function loadSecurityRoleData(): Promise<RoleData> {
@@ -49,18 +54,33 @@ export async function loadSecurityRoleData(): Promise<RoleData> {
 }
 
 /** Applies already-previewed role associations one at a time, preserving a precise failure boundary. */
-export async function applyRoleChangeOperations(operations: RoleChangeOperation[], onProgress?: (completed: number, total: number) => void, signal?: AbortSignal): Promise<void> {
+export async function applyRoleChangeOperations(operations: RoleChangeOperation[], onProgress?: (completed: number, total: number) => void, signal?: AbortSignal): Promise<RoleChangeResult[]> {
     let completed = 0;
+    const results: RoleChangeResult[] = [];
     for (const operation of operations) {
         if (signal?.aborted) throw new RoleChangeCancelledError();
         const entity = operation.target.type === "team" ? "team" : "systemuser";
         const relationship = operation.target.type === "team" ? "teamroles_association" : "systemuserroles_association";
-        if (operation.action === "add") {
-            await window.dataverseAPI.associate(entity, operation.target.id, relationship, "role", operation.role.id);
-        } else {
-            await window.dataverseAPI.disassociate(entity, operation.target.id, relationship, operation.role.id);
+        try {
+            if (operation.action === "add") {
+                try {
+                    await window.dataverseAPI.associate(entity, operation.target.id, relationship, "role", operation.role.id);
+                    results.push({ operation, outcome: "applied", role: operation.role });
+                } catch (cause) {
+                    if (!operation.fallbackRole) throw cause;
+                    await window.dataverseAPI.associate(entity, operation.target.id, relationship, "role", operation.fallbackRole.id);
+                    results.push({ operation, outcome: "applied-with-fallback", role: operation.fallbackRole, message: "Applied using the target business unit role copy." });
+                }
+            } else {
+                await window.dataverseAPI.disassociate(entity, operation.target.id, relationship, operation.role.id);
+                results.push({ operation, outcome: "applied", role: operation.role });
+            }
+        } catch (cause) {
+            const dataverseMessage = cause instanceof Error ? cause.message : "Unknown Dataverse error";
+            results.push({ operation, outcome: "failed", role: operation.role, message: operation.fallbackUnavailableReason ? `${operation.fallbackUnavailableReason} Exact association failed: ${dataverseMessage}` : dataverseMessage });
         }
         completed += 1;
         onProgress?.(completed, operations.length);
     }
+    return results;
 }
