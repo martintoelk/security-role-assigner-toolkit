@@ -1,6 +1,6 @@
 # BU Security Role Assigner
 
-A Power Platform ToolBox (PPTB) tool for safely previewing and assigning Dataverse security roles by business unit. It loads teams, users, roles, business units, and assignments from the active connection; confirmed bulk role changes are available for teams.
+A Power Platform ToolBox (PPTB) tool for safely previewing and assigning Dataverse security roles by business unit. It loads teams, users, roles, business units, and assignments from the active connection; bulk role changes are available for teams.
 
 ## Local development
 

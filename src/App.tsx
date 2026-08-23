@@ -1,7 +1,7 @@
 import { Button, Checkbox, FluentProvider, Input, Toolbar, ToolbarButton, webLightTheme } from "@fluentui/react-components";
 import { useMemo, useRef, useState } from "react";
 import { applyRoleChangeOperations, loadSecurityRoleData, RoleChangeCancelledError, type RoleChangeResult } from "./data/dataverse";
-import { canApplyConfirmedTeamPreview, createRoleChangeOperations, createRoleChangePreview } from "./domain/preview";
+import { createRoleChangeOperations, createRoleChangePreview } from "./domain/preview";
 import { targetsFor, type ChangeAction, type RoleData, type Target, type TargetType } from "./domain/types";
 
 function includesQuery(name: string, businessUnit: string, query: string) {
@@ -43,7 +43,6 @@ function App() {
     const [selectedTargets, setSelectedTargets] = useState<string[]>([]);
     const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
     const [removeFromAllBusinessUnits, setRemoveFromAllBusinessUnits] = useState(false);
-    const [confirmedPreview, setConfirmedPreview] = useState(false);
     const [error, setError] = useState("");
     const [result, setResult] = useState("");
     const [operationResults, setOperationResults] = useState<RoleChangeResult[]>([]);
@@ -65,7 +64,6 @@ function App() {
         setResult("");
         setOperationResults([]);
         setProgress(undefined);
-        setConfirmedPreview(false);
         try {
             setData(await loadSecurityRoleData());
         } catch (cause) {
@@ -77,7 +75,7 @@ function App() {
 
     const apply = async () => {
         if (!data) return;
-        if (!canApplyConfirmedTeamPreview(mode, confirmedPreview, preview)) { setError("Confirm a team preflight preview with pending changes before applying role changes."); return; }
+        if (mode !== "team") { setResult("Role changes are currently available for teams only."); return; }
         setError("");
         setResult("");
         setOperationResults([]);
@@ -97,7 +95,6 @@ function App() {
             setData(await loadSecurityRoleData());
             setResult(formatResultSummary(results));
             setOperationResults(results);
-            setConfirmedPreview(false);
         } catch (cause) {
             if (cause instanceof RoleChangeCancelledError) {
                 setData(await loadSecurityRoleData());
@@ -116,7 +113,6 @@ function App() {
         setMode(nextMode);
         setSelectedTargets([]);
         setTargetFilter("");
-        setConfirmedPreview(false);
         targetSelectionAnchor.current = undefined;
     };
     const targetTitle = mode === "team" ? "Teams" : "Users";
@@ -129,7 +125,7 @@ function App() {
                 <ToolbarButton icon={<span className="command-icon refresh-icon">↻</span>} onClick={load} disabled={loading}>
                     {loading ? "Loading…" : "Load / Refresh"}
                 </ToolbarButton>
-                <Checkbox className="remove-all-toggle" checked={removeFromAllBusinessUnits} disabled={action === "add"} label="Remove from all BUs" onChange={(_, state) => { setRemoveFromAllBusinessUnits(Boolean(state.checked)); setConfirmedPreview(false); }} />
+                <Checkbox className="remove-all-toggle" checked={removeFromAllBusinessUnits} disabled={action === "add"} label="Remove from all BUs" onChange={(_, state) => setRemoveFromAllBusinessUnits(Boolean(state.checked))} />
             </Toolbar>
 
             <header className="tool-heading">
@@ -148,13 +144,13 @@ function App() {
                         <Input className="search-box" contentBefore={<span aria-hidden="true">⌕</span>} placeholder="Search…" value={roleFilter} onChange={(_, state) => setRoleFilter(state.value)} />
                         <div className="data-grid roles-grid" role="listbox" aria-multiselectable="true" aria-label="Security roles">
                             <div className="grid-header" role="presentation"><span>Security Role</span><span>Business Unit</span></div>
-                            <div className="grid-body">{roles.map((role) => <RoleRow key={role.id} role={role} businessUnitName={businessUnitName(role.businessUnitId, role.businessUnitName)} checked={selectedRoles.includes(role.id)} onToggle={(shiftKey) => { roleSelectionAnchor.current = selectWithRange(roles, selectedRoles, role.id, shiftKey, roleSelectionAnchor.current, (next) => { setSelectedRoles(next); setConfirmedPreview(false); }); }} />)}</div>
+                            <div className="grid-body">{roles.map((role) => <RoleRow key={role.id} role={role} businessUnitName={businessUnitName(role.businessUnitId, role.businessUnitName)} checked={selectedRoles.includes(role.id)} onToggle={(shiftKey) => { roleSelectionAnchor.current = selectWithRange(roles, selectedRoles, role.id, shiftKey, roleSelectionAnchor.current, setSelectedRoles); }} />)}</div>
                         </div>
                     </section>
 
                     <div className="action-column" aria-label="Choose the requested action">
-                        <Button appearance={action === "add" ? "primary" : "secondary"} icon={<span className="action-icon add-icon">+</span>} onClick={() => { setAction("add"); setConfirmedPreview(false); }} disabled={loading}>Preview add roles to {mode === "team" ? "team(s)" : "user(s)"}</Button>
-                        <Button appearance={action === "remove" ? "primary" : "secondary"} className="remove-button" icon={<span className="action-icon remove-icon">−</span>} onClick={() => { setAction("remove"); setConfirmedPreview(false); }} disabled={loading}>Preview remove roles from {mode === "team" ? "team(s)" : "user(s)"}</Button>
+                        <Button appearance={action === "add" ? "primary" : "secondary"} icon={<span className="action-icon add-icon">+</span>} onClick={() => setAction("add")} disabled={loading}>Preview add roles to {mode === "team" ? "team(s)" : "user(s)"}</Button>
+                        <Button appearance={action === "remove" ? "primary" : "secondary"} className="remove-button" icon={<span className="action-icon remove-icon">−</span>} onClick={() => setAction("remove")} disabled={loading}>Preview remove roles from {mode === "team" ? "team(s)" : "user(s)"}</Button>
                     </div>
 
                     <section className="list-pane" aria-labelledby="targets-heading">
@@ -163,14 +159,14 @@ function App() {
                         <Input className="search-box" contentBefore={<span aria-hidden="true">⌕</span>} placeholder="Search…" value={targetFilter} onChange={(_, state) => setTargetFilter(state.value)} />
                         <div className="data-grid targets-grid" role="listbox" aria-multiselectable="true" aria-label={targetTitle}>
                             <div className="grid-header" role="presentation"><span>{mode === "team" ? "Team" : "User"}</span><span>Business Unit</span><span>{targetTypeTitle}</span></div>
-                            <div className="grid-body">{targets.map((target) => <TargetRow key={target.id} target={target} businessUnitName={businessUnitName(target.businessUnitId, target.businessUnitName)} checked={selectedTargets.includes(target.id)} mode={mode} onToggle={(shiftKey) => { targetSelectionAnchor.current = selectWithRange(targets, selectedTargets, target.id, shiftKey, targetSelectionAnchor.current, (next) => { setSelectedTargets(next); setConfirmedPreview(false); }); }} />)}</div>
+                            <div className="grid-body">{targets.map((target) => <TargetRow key={target.id} target={target} businessUnitName={businessUnitName(target.businessUnitId, target.businessUnitName)} checked={selectedTargets.includes(target.id)} mode={mode} onToggle={(shiftKey) => { targetSelectionAnchor.current = selectWithRange(targets, selectedTargets, target.id, shiftKey, targetSelectionAnchor.current, setSelectedTargets); }} />)}</div>
                         </div>
                     </section>
                 </section>
 
                 <section className="operation-status" aria-live="polite"><strong>{action === "add" ? "Add" : "Remove"} preview</strong><span>{selectedRoles.length} role(s) × {selectedTargetItems.length} {mode}(s)</span><span className="preview-result">{preview?.applyCount ?? 0} change(s) ready; {preview?.skipCount ?? 0} safe skip(s)</span>{action === "remove" && removeFromAllBusinessUnits && <span className="warning-note">All BU copies will be included.</span>}</section>
-                <section className="confirmation-panel" aria-label="Confirm role change preview">
-                    {mode === "team" ? <><Checkbox checked={confirmedPreview} onChange={(_, state) => setConfirmedPreview(Boolean(state.checked))} label="I reviewed this preview and want to apply these team role changes." /><Button appearance="primary" disabled={loading || !canApplyConfirmedTeamPreview(mode, confirmedPreview, preview)} onClick={() => void apply()}>Apply confirmed changes</Button></> : <span>Role changes are currently available for teams only.</span>}
+                <section className="confirmation-panel" aria-label="Apply role change preview">
+                    {mode === "team" ? <Button appearance="primary" disabled={loading || (preview?.applyCount ?? 0) === 0} onClick={() => void apply()}>Apply role changes</Button> : <span>Role changes are currently available for teams only.</span>}
                 </section>
                 {operationResults.length > 0 && <section className="operation-results" aria-label="Team role change results"><h2>Team role change results</h2><ul>{operationResults.map((change, index) => <li key={`${change.operation.target.id}:${change.role.id}:${index}`}><strong>{change.operation.target.name}</strong> — {change.role.name}: {change.outcome === "applied" ? "applied" : change.outcome === "applied-with-fallback" ? "applied with target-BU fallback" : `failed (${change.message})`}</li>)}</ul></section>}
                 {progress && <div className="operation-progress-overlay" role="alertdialog" aria-modal="true" aria-label="Applying role assignment changes"><section className="operation-progress"><h2>Applying role changes</h2><progress value={progress.completed} max={progress.total} /><span>{progress.completed === 0 ? `Preparing ${progress.total} change(s)` : `Applied ${progress.completed} of ${progress.total}`}</span><span>{progress.completed === 0 ? "Calculating ETA…" : progress.completed === progress.total ? "Refreshing assignments…" : `About ${formatDuration(((Date.now() - progress.startedAt) / progress.completed) * (progress.total - progress.completed))} remaining`}</span><Button className="cancel-operation" appearance="secondary" onClick={() => operationController.current?.abort()}>Cancel remaining changes</Button></section></div>}

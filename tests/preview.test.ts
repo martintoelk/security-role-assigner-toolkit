@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canApplyConfirmedTeamPreview, createRoleChangeOperations, createRoleChangePreview, filterByText } from "../src/domain/preview";
+import { createRoleChangeOperations, createRoleChangePreview, filterByText } from "../src/domain/preview";
 import type { RoleAssignment, SecurityRole, Target } from "../src/domain/types";
 
 const role: SecurityRole = { id: "role-a", rootRoleId: "logical-a", name: "Salesperson", businessUnitId: "bu-a" };
@@ -44,14 +44,6 @@ describe("createRoleChangePreview", () => {
         const operations = createRoleChangeOperations({ action: "add", removeFromAllBusinessUnits: false, targets: [target], roles: [{ ...role, businessUnitId: "root" }], selectedRoleIds: [role.id], assignments: [], businessUnitMode: "traditional" });
 
         expect(operations[0].fallbackUnavailableReason).toContain("No matching root-role copy");
-    });
-
-    it("allows mutation only for a confirmed team preview with changes", () => {
-        const preview = createRoleChangePreview({ action: "add", removeFromAllBusinessUnits: false, targets: [target], roles: [role], selectedRoleIds: [role.id], assignments: [] });
-
-        expect(canApplyConfirmedTeamPreview("team", false, preview)).toBe(false);
-        expect(canApplyConfirmedTeamPreview("user", true, preview)).toBe(false);
-        expect(canApplyConfirmedTeamPreview("team", true, preview)).toBe(true);
     });
 
     it("filters targets without changing the source list", () => {
