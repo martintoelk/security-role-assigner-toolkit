@@ -7,14 +7,25 @@
     "main": "index.html",
     "author": "Martin Tölk",
     "license": "MIT",
-    "contributors": [{ "name": "Martin Tölk", "url": "https://github.com/martintoelk" }],
-    "repository": { "type": "git", "url": "https://github.com/martintoelk/security-role-assigner-toolkit.git" },
+    "contributors": [
+        {
+            "name": "Martin Tölk",
+            "url": "https://github.com/martintoelk"
+        }
+    ],
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/martintoelk/security-role-assigner-toolkit.git"
+    },
     "configurations": {
         "repository": "https://github.com/martintoelk/security-role-assigner-toolkit",
         "readmeUrl": "https://raw.githubusercontent.com/martintoelk/security-role-assigner-toolkit/master/README.md"
     },
     "icon": "icons/role-shield.svg",
-    "features": { "multiConnection": "none", "minAPI": "1.2.0" },
+    "features": {
+        "multiConnection": "none",
+        "minAPI": "1.2.0"
+    },
     "engines": {
         "node": ">=18.0.0"
     },
