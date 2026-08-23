@@ -38,7 +38,9 @@ async function readAssignments(entity: "team" | "systemuser", id: string) {
 function toTargets(records: Record<string, unknown>[], type: TargetType): Target[] {
     const id = type === "team" ? "teamid" : "systemuserid";
     const name = type === "team" ? "name" : "fullname";
-    return records.map((record) => ({ id: string(record, id), name: string(record, name), businessUnitId: lookupId(record, "businessunitid"), businessUnitName: string(record, "businessunitname") || string(record, "businessunitid@OData.Community.Display.V1.FormattedValue"), type, teamType: type === "team" ? string(record, "teamtype@OData.Community.Display.V1.FormattedValue") || string(record, "teamtype") : undefined, isDisabled: type === "user" ? boolean(record, "isdisabled") : undefined }));
+    return records
+        .filter((record) => type !== "team" || Number(record.teamtype) !== 1)
+        .map((record) => ({ id: string(record, id), name: string(record, name), businessUnitId: lookupId(record, "businessunitid"), businessUnitName: string(record, "businessunitname") || string(record, "businessunitid@OData.Community.Display.V1.FormattedValue"), type, teamType: type === "team" ? string(record, "teamtype@OData.Community.Display.V1.FormattedValue") || string(record, "teamtype") : undefined, isDisabled: type === "user" ? boolean(record, "isdisabled") : undefined }));
 }
 
 export async function loadSecurityRoleData(): Promise<RoleData> {
