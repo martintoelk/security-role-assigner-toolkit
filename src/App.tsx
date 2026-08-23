@@ -73,13 +73,14 @@ function App() {
         }
     };
 
-    const apply = async () => {
+    const apply = async (nextAction: ChangeAction) => {
         if (!data) return;
         if (mode !== "team") { setResult("Role changes are currently available for teams only."); return; }
+        setAction(nextAction);
         setError("");
         setResult("");
         setOperationResults([]);
-        const request = { action, removeFromAllBusinessUnits, targets: selectedTargetItems, roles: data.roles, selectedRoleIds: selectedRoles, assignments: data.assignments, businessUnitMode: data.businessUnitMode };
+        const request = { action: nextAction, removeFromAllBusinessUnits, targets: selectedTargetItems, roles: data.roles, selectedRoleIds: selectedRoles, assignments: data.assignments, businessUnitMode: data.businessUnitMode };
         const operations = createRoleChangeOperations(request);
         if (operations.length === 0) {
             setResult("No changes to apply; the selected roles are already in the requested state.");
@@ -100,7 +101,7 @@ function App() {
                 setData(await loadSecurityRoleData());
                 setResult("Operation cancelled. Completed changes were retained and assignments refreshed.");
             } else {
-                setError(`Could not ${action} the selected role assignments: ${cause instanceof Error ? cause.message : "Unknown error"}`);
+                setError(`Could not ${nextAction} the selected role assignments: ${cause instanceof Error ? cause.message : "Unknown error"}`);
             }
         } finally {
             setLoading(false);
@@ -149,8 +150,8 @@ function App() {
                     </section>
 
                     <div className="action-column" aria-label="Choose the requested action">
-                        <Button appearance={action === "add" ? "primary" : "secondary"} icon={<span className="action-icon add-icon">+</span>} onClick={() => setAction("add")} disabled={loading}>Preview add roles to {mode === "team" ? "team(s)" : "user(s)"}</Button>
-                        <Button appearance={action === "remove" ? "primary" : "secondary"} className="remove-button" icon={<span className="action-icon remove-icon">−</span>} onClick={() => setAction("remove")} disabled={loading}>Preview remove roles from {mode === "team" ? "team(s)" : "user(s)"}</Button>
+                        <Button appearance={action === "add" ? "primary" : "secondary"} icon={<span className="action-icon add-icon">+</span>} onClick={() => void apply("add")} disabled={loading}>Add roles to {mode === "team" ? "team(s)" : "user(s)"}</Button>
+                        <Button appearance={action === "remove" ? "primary" : "secondary"} className="remove-button" icon={<span className="action-icon remove-icon">−</span>} onClick={() => void apply("remove")} disabled={loading}>Remove roles from {mode === "team" ? "team(s)" : "user(s)"}</Button>
                     </div>
 
                     <section className="list-pane" aria-labelledby="targets-heading">
@@ -165,9 +166,6 @@ function App() {
                 </section>
 
                 <section className="operation-status" aria-live="polite"><strong>{action === "add" ? "Add" : "Remove"} preview</strong><span>{selectedRoles.length} role(s) × {selectedTargetItems.length} {mode}(s)</span><span className="preview-result">{preview?.applyCount ?? 0} change(s) ready; {preview?.skipCount ?? 0} safe skip(s)</span>{action === "remove" && removeFromAllBusinessUnits && <span className="warning-note">All BU copies will be included.</span>}</section>
-                <section className="confirmation-panel" aria-label="Apply role change preview">
-                    {mode === "team" ? <Button appearance="primary" disabled={loading || (preview?.applyCount ?? 0) === 0} onClick={() => void apply()}>Apply role changes</Button> : <span>Role changes are currently available for teams only.</span>}
-                </section>
                 {operationResults.length > 0 && <section className="operation-results" aria-label="Team role change results"><h2>Team role change results</h2><ul>{operationResults.map((change, index) => <li key={`${change.operation.target.id}:${change.role.id}:${index}`}><strong>{change.operation.target.name}</strong> — {change.role.name}: {change.outcome === "applied" ? "applied" : change.outcome === "applied-with-fallback" ? "applied with target-BU fallback" : `failed (${change.message})`}</li>)}</ul></section>}
                 {progress && <div className="operation-progress-overlay" role="alertdialog" aria-modal="true" aria-label="Applying role assignment changes"><section className="operation-progress"><h2>Applying role changes</h2><progress value={progress.completed} max={progress.total} /><span>{progress.completed === 0 ? `Preparing ${progress.total} change(s)` : `Applied ${progress.completed} of ${progress.total}`}</span><span>{progress.completed === 0 ? "Calculating ETA…" : progress.completed === progress.total ? "Refreshing assignments…" : `About ${formatDuration(((Date.now() - progress.startedAt) / progress.completed) * (progress.total - progress.completed))} remaining`}</span><Button className="cancel-operation" appearance="secondary" onClick={() => operationController.current?.abort()}>Cancel remaining changes</Button></section></div>}
                 {result && <p className="success-message" role="status">{result}</p>}
