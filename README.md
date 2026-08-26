@@ -14,6 +14,10 @@ npm run dev-watch
 
 In PPTB, enable **Show Debug Menu** in Settings. In **Debug**, choose **Load Local Tool**, select this repository root (the folder containing `package.json`), and reload the tool after each rebuild. Use only a sandbox Dataverse environment while developing and testing later role-management features.
 
+### PPTB 1.2.5 compatibility
+
+PPTB 1.2.5 has a host-side path resolution issue when a scoped npm package is loaded without a version suffix. Until the host fix is released, use **Load Local Tool** for development or specify a published package version explicitly, such as `@martintoelk/bu-security-role-assigner@1.0.2`; use `@1.0.3` after this metadata fix is published.
+
 ## Verification
 
 ```powershell
